@@ -12,6 +12,10 @@ on:
         description: "Specify the semver version for the next release, to override the default semver bump"
         default: ""
         required: false
+    secrets:
+        HRA2_GITHUB_TOKEN:
+          description: "GitHub token for Holochain Release Automation"
+          required: true
 
 jobs:
   prepare:

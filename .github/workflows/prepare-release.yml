@@ -30,8 +30,14 @@ jobs:
         with:
           tool: git-cliff@2.9.1
 
-      - name: Install cargo-workspaces
-        uses: taiki-e/install-action@v2
+      # Temporary, pending the release of cargo-workspaces 0.4.1
+      # Currently it doesn't support binstall and would need building on CI.
+      # - name: Install cargo-workspaces
+      #   uses: taiki-e/install-action@v2
+      #   with:
+      #     tool: cargo-workspaces@0.4.0
+
+      - uses: taiki-e/cache-cargo-install-action@v2
         with:
           tool: cargo-workspaces@0.4.0
 

@@ -43,8 +43,7 @@ jobs:
           tool: cargo-semver-checks@0.41.0
 
       - name: Install holochain_release_util
-        # TODO Install from a release once available
-        run: cargo install --git https://github.com/holochain/release-integration.git --branch prepare-publish holochain_release_util
+        run: cargo install --git https://github.com/holochain/release-integration.git holochain_release_util
 
       - name: Prepare release
         run: |

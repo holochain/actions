@@ -24,7 +24,7 @@ jobs:
         run: cargo install --git https://github.com/holochain/release-integration.git holochain_release_util
 
       # Note that if the HEAD commit did not come from a PR that was labeled with `hra-release`, this will be a no-op.
-      - name: Prepare release
+      - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.HRA2_GITHUB_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.HRA2_CRATES_IO_TOKEN }}

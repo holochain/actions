@@ -26,8 +26,15 @@ jobs:
         with:
           tool: cargo-workspaces@0.4.0
 
+      # For testing a new version of the holochain_release_util, you can uncomment the following lines:
+      # The next step will have to be commented out to avoid replacing this version.
+      # - name: Install holochain_release_util
+      #   run: cargo install --git https://github.com/holochain/release-integration.git holochain_release_util
+
       - name: Install holochain_release_util
-        run: cargo install --git https://github.com/holochain/release-integration.git holochain_release_util
+        uses: taiki-e/install-action@v2
+        with:
+          tool: holochain_release_util@0.1.0
 
       # Note that if the HEAD commit did not come from a PR that was labeled with `hra-release`, this will be a no-op.
       - name: Publish release

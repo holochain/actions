@@ -48,7 +48,7 @@ jobs:
 
       - name: Prepare release
         run: |
-          holochain_release_util generate --cliff-config "${{ inputs.cliff_config }}" \
+          holochain_release_util prepare --cliff-config "${{ inputs.cliff_config }}" \
             --force-version "${{ inputs.force_version }}"
 
       - name: Create a release pull request

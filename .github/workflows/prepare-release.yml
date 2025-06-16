@@ -1,0 +1,76 @@
+name: prepare-release.yml
+
+on:
+  workflow_call:
+    inputs:
+      cliff_config:
+        type: string
+        description: "Path or URL to a git-cliff configuration file"
+        required: true
+      force_version:
+        type: string
+        description: "Specify the semver version for the next release, to override the default semver bump"
+        default: ""
+        required: false
+    secrets:
+        HRA2_GITHUB_TOKEN:
+          description: "GitHub token for Holochain Release Automation"
+          required: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install git-cliff
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff@2.9.1
+
+      # TODO Temporary, pending the release of cargo-workspaces 0.4.1
+      #      Currently it doesn't support binstall and would need building on CI.
+      # - name: Install cargo-workspaces
+      #   uses: taiki-e/install-action@v2
+      #   with:
+      #     tool: cargo-workspaces@0.4.0
+
+      - uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: cargo-workspaces@0.4.0
+
+      - name: Install cargo-semver-checks
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-semver-checks@0.41.0
+
+      # For testing a new version of the holochain_release_util, you can uncomment the following lines:
+      # The next step will have to be commented out to avoid replacing this version.
+      # - name: Install holochain_release_util
+      #   run: cargo install --git https://github.com/holochain/release-integration.git holochain_release_util
+
+      - name: Install holochain_release_util
+        uses: taiki-e/install-action@v2
+        with:
+          tool: holochain_release_util@0.1.0
+
+      - name: Prepare release
+        run: |
+          holochain_release_util prepare --cliff-config "${{ inputs.cliff_config }}" \
+            --force-version "${{ inputs.force_version }}"
+
+      - name: Create a release pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.HRA2_GITHUB_TOKEN }}
+          author: '${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>'
+          committer: "Holochain Release Automation <hra+gh@holochain.org>"
+          title: "Prepare next release"
+          commit-message: "chore: Prepare next release"
+          branch: "prepare-release"
+          branch-suffix: "short-commit-hash"
+          labels: "hra-release"
+          team-reviewers: "holochain/holochain-devs"
+          body: "Automated preparation for the next release, triggered by ${{ github.actor }}."

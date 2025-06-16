@@ -1,4 +1,5 @@
 name: prepare-release.yml
+
 on:
   workflow_call:
     inputs:
@@ -30,8 +31,8 @@ jobs:
         with:
           tool: git-cliff@2.9.1
 
-      # Temporary, pending the release of cargo-workspaces 0.4.1
-      # Currently it doesn't support binstall and would need building on CI.
+      # TODO Temporary, pending the release of cargo-workspaces 0.4.1
+      #      Currently it doesn't support binstall and would need building on CI.
       # - name: Install cargo-workspaces
       #   uses: taiki-e/install-action@v2
       #   with:
@@ -65,10 +66,12 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.HRA2_GITHUB_TOKEN }}
+          author: '${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>'
           committer: "Holochain Release Automation <hra+gh@holochain.org>"
           title: "Prepare next release"
-          commit-message: 'chore: Prepare next release'
+          commit-message: "chore: Prepare next release"
           branch: "prepare-release"
           branch-suffix: "short-commit-hash"
           labels: "hra-release"
           team-reviewers: "holochain/holochain-devs"
+          body: "Automated preparation for the next release, triggered by ${{ github.actor }}."

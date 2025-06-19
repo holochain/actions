@@ -35,7 +35,7 @@ jobs:
       - name: Install holochain_release_util
         uses: taiki-e/install-action@v2
         with:
-          tool: holochain_release_util@0.1.0
+          tool: holochain_release_util@0.1.2
 
       # Note that if the HEAD commit did not come from a PR that was labeled with `hra-release`, this will be a no-op.
       - name: Publish release

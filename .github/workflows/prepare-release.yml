@@ -59,7 +59,7 @@ jobs:
       - name: Install holochain_release_util
         uses: taiki-e/install-action@v2
         with:
-          tool: holochain_release_util@0.1.0
+          tool: holochain_release_util@0.1.2
 
       - name: Prepare release
         run: |

@@ -12,6 +12,11 @@ on:
         description: "Specify the semver version for the next release, to override the default semver bump"
         default: ""
         required: false
+      extra_release_util_args:
+        type: string
+        description: "Additional arguments to pass to the holochain_release_util prepare command"
+        default: ""
+        required: false
     secrets:
         HRA2_GITHUB_TOKEN:
           description: "GitHub token for Holochain Release Automation"
@@ -59,7 +64,7 @@ jobs:
       - name: Prepare release
         run: |
           holochain_release_util prepare --cliff-config "${{ inputs.cliff_config }}" \
-            --force-version "${{ inputs.force_version }}"
+            --force-version "${{ inputs.force_version }}" "${{ inputs.extra_release_util_args }}"
 
       - name: Create a release pull request
         uses: peter-evans/create-pull-request@v7

@@ -26,30 +26,24 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Install git-cliff
         uses: taiki-e/install-action@v2
         with:
-          tool: git-cliff@2.9.1
+          tool: git-cliff@2.10.1
 
-      # TODO Temporary, pending the release of cargo-workspaces 0.4.1
-      #      Currently it doesn't support binstall and would need building on CI.
-      # - name: Install cargo-workspaces
-      #   uses: taiki-e/install-action@v2
-      #   with:
-      #     tool: cargo-workspaces@0.4.0
-
-      - uses: taiki-e/cache-cargo-install-action@v2
+      - name: Install cargo-workspaces
+        uses: taiki-e/install-action@v2
         with:
-          tool: cargo-workspaces@0.4.0
+          tool: cargo-workspaces@0.4.1
 
       - name: Install cargo-semver-checks
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-semver-checks@0.41.0
+          tool: cargo-semver-checks@0.44.0
 
       # For testing a new version of the holochain_release_util, you can uncomment the following lines:
       # The next step will have to be commented out to avoid replacing this version.

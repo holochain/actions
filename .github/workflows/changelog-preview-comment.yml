@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout PR commits only
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: ${{ github.event.pull_request.commits }}
@@ -27,7 +27,7 @@ jobs:
       - name: Install git-cliff
         uses: taiki-e/install-action@v2
         with:
-          tool: git-cliff@2.9.1
+          tool: git-cliff@2.10.1
 
       - name: Run git cliff
         run: |

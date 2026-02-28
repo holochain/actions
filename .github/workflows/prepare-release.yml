@@ -12,6 +12,11 @@ on:
         description: "Specify the semver version for the next release, to override the default semver bump"
         default: ""
         required: false
+      skip_semver_checks:
+        type: boolean
+        description: "Whether to skip semver checks when preparing the release"
+        default: false
+        required: false
       extra_release_util_args:
         type: string
         description: "Additional arguments to pass to the holochain_release_util prepare command"
@@ -57,8 +62,15 @@ jobs:
 
       - name: Prepare release
         run: |
+          # Check whether skipping semver checks was requested, and if so, generate the CLI flag
+            if [ "${{ inputs.skip_semver_checks }}" = "true" ]; then
+                SKIP_SEMVER_CHECKS_FLAG="--skip-semver-checks"
+            else
+                SKIP_SEMVER_CHECKS_FLAG=""
+            fi
+          
           holochain_release_util prepare --cliff-config "${{ inputs.cliff_config }}" \
-            --force-version "${{ inputs.force_version }}" ${{ inputs.extra_release_util_args }}
+            --force-version "${{ inputs.force_version }}" $SKIP_SEMVER_CHECKS_FLAG ${{ inputs.extra_release_util_args }}
 
       - name: Create a release pull request
         uses: peter-evans/create-pull-request@v8

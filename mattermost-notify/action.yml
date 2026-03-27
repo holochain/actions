@@ -1,0 +1,29 @@
+name: Mattermost notifier
+description: Send a message to a Mattermost channel
+
+inputs:
+  mattermost_url:
+    description: Base URL for the Mattermost instance (for example, https://example.com)
+    required: false
+    default: https://chat.holochain.org
+  channel_id:
+    description: Mattermost channel ID to post to
+    required: true
+  message:
+    description: Message text to send
+    required: true
+  mattermost_personal_access_token:
+    description: Mattermost personal access token
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Send Mattermost message
+      shell: bash
+      env:
+        MATTERMOST_URL: ${{ inputs.mattermost_url }}
+        MATTERMOST_CHANNEL_ID: ${{ inputs.channel_id }}
+        MATTERMOST_MESSAGE: ${{ inputs.message }}
+        MATTERMOST_PERSONAL_ACCESS_TOKEN: ${{ inputs.mattermost_personal_access_token }}
+      run: "$GITHUB_ACTION_PATH/notify.sh"

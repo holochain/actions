@@ -69,7 +69,7 @@ jobs:
 
       - name: Install cargo-semver-checks
         uses: taiki-e/install-action@v2
-        if: ${{ inputs.skip_semver_checks == 'false' }}
+        if: ${{ !inputs.skip_semver_checks }}
         with:
           tool: cargo-semver-checks@0.46.0
 

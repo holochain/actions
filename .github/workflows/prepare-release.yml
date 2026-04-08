@@ -22,6 +22,23 @@ on:
         description: "Additional arguments to pass to the holochain_release_util prepare command"
         default: ""
         required: false
+      setup_script:
+        type: string
+        description: |
+          Optional bash script run on the runner after checkout and before
+          any of the release tooling is installed or invoked. Use this hook
+          to install system tools (compilers, toolchains, libraries) or
+          export environment variables that crates being prepared need at
+          build time. For example, a workspace containing a crate that
+          links against `llvm-sys` can use this to download an LLVM
+          toolchain and export `LLVM_SYS_*_PREFIX` so that
+          `cargo-semver-checks` can build all features successfully.
+
+          Anything written to `$GITHUB_ENV` from this script is available
+          to subsequent steps in the job, including the `Prepare release`
+          step.
+        default: ""
+        required: false
     secrets:
         HRA2_GITHUB_TOKEN:
           description: "GitHub token for Holochain Release Automation"
@@ -34,6 +51,11 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Run setup script
+        if: ${{ inputs.setup_script != '' }}
+        shell: bash
+        run: ${{ inputs.setup_script }}
 
       - name: Install git-cliff
         uses: taiki-e/install-action@v2

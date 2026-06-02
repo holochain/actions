@@ -1,0 +1,158 @@
+name: Publish Node.js Release
+
+on:
+  workflow_call:
+    inputs:
+      cliff_config_url:
+        type: string
+        description: "URL to a git-cliff configuration file"
+        required: true
+      node_version:
+        type: string
+        description: "Node.js version to use"
+        default: "22"
+        required: false
+      package_manager:
+        type: string
+        description: "Package manager used by the project: npm, yarn, or pnpm"
+        default: "npm"
+        required: false
+      build_script:
+        type: string
+        description: "npm script name to run for building the project"
+        default: "build"
+        required: false
+    secrets:
+      NPM_TOKEN:
+        description: "npm authentication token for publishing"
+        required: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      is-release: ${{ steps.label.outputs.result }}
+    steps:
+      - name: Check for hra-release label on merged PR
+        id: label
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RESULT=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/pulls \
+            --jq 'any(.[].labels[].name; . == "hra-release")' 2>/dev/null || echo "false")
+          echo "result=$RESULT" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: check
+    if: needs.check.outputs.is-release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Validate inputs
+        env:
+          PACKAGE_MANAGER: ${{ inputs.package_manager }}
+        run: |
+          case "$PACKAGE_MANAGER" in
+            npm|yarn|pnpm) ;;
+            *) echo "::error::Unsupported package_manager '$PACKAGE_MANAGER'. Must be one of: npm, yarn, pnpm." && exit 1 ;;
+          esac
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        if: inputs.package_manager == 'pnpm'
+        uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          registry-url: "https://registry.npmjs.org"
+          cache: ${{ inputs.package_manager }}
+
+      - name: Install dependencies
+        env:
+          PACKAGE_MANAGER: ${{ inputs.package_manager }}
+        run: |
+          case "$PACKAGE_MANAGER" in
+            yarn) yarn install --frozen-lockfile ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            npm) npm ci ;;
+          esac
+
+      - name: Build
+        env:
+          PACKAGE_MANAGER: ${{ inputs.package_manager }}
+          BUILD_SCRIPT: ${{ inputs.build_script }}
+        run: |
+          case "$PACKAGE_MANAGER" in
+            yarn) yarn "$BUILD_SCRIPT" ;;
+            pnpm) pnpm run "$BUILD_SCRIPT" ;;
+            npm) npm run "$BUILD_SCRIPT" ;;
+          esac
+
+      - name: Get version
+        id: version
+        run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --tags origin "v$RELEASE_VERSION" | grep -q .; then
+            echo "::error::Tag v$RELEASE_VERSION already exists. Was this release already published?"
+            exit 1
+          fi
+          git tag "v$RELEASE_VERSION"
+          git push origin "v$RELEASE_VERSION"
+
+      - name: Install git-cliff
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff@2.13.1
+
+      - name: Generate release notes
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.value }}
+          CLIFF_CONFIG_URL: ${{ inputs.cliff_config_url }}
+        run: |
+          git-cliff --config-url="$CLIFF_CONFIG_URL" --tag "v$RELEASE_VERSION" --latest --strip all > release-notes.md
+
+      - name: Pack npm artifact
+        run: npm pack
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          PRERELEASE_FLAG=""
+          if [[ "$RELEASE_VERSION" == *"-"* ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          gh release create "v$RELEASE_VERSION" \
+            --title "v$RELEASE_VERSION" \
+            --notes-file release-notes.md \
+            $PRERELEASE_FLAG \
+            ./*.tgz
+
+      - name: Publish to npm
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.value }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          if npm view "$PACKAGE_NAME@$RELEASE_VERSION" > /dev/null 2>&1; then
+            echo "::error::$PACKAGE_NAME@$RELEASE_VERSION is already published to npm. Was this release already published?"
+            exit 1
+          fi
+          if [[ "$RELEASE_VERSION" == *"-"* ]]; then
+            npm publish --access public --provenance --tag next
+          else
+            npm publish --access public --provenance
+          fi

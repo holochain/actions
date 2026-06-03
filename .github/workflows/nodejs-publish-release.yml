@@ -3,10 +3,6 @@ name: Publish Node.js Release
 on:
   workflow_call:
     inputs:
-      cliff_config_url:
-        type: string
-        description: "URL to a git-cliff configuration file"
-        required: true
       node_version:
         type: string
         description: "Node.js version to use"
@@ -114,17 +110,21 @@ jobs:
           git tag "v$RELEASE_VERSION"
           git push origin "v$RELEASE_VERSION"
 
-      - name: Install git-cliff
-        uses: taiki-e/install-action@v2
-        with:
-          tool: git-cliff@2.13.1
-
-      - name: Generate release notes
+      - name: Extract release notes from changelog
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.value }}
-          CLIFF_CONFIG_URL: ${{ inputs.cliff_config_url }}
         run: |
-          git-cliff --config-url="$CLIFF_CONFIG_URL" --tag "v$RELEASE_VERSION" --latest --strip all > release-notes.md
+          awk -v version="$RELEASE_VERSION" '
+            /^## / {
+              if (found) exit
+              if (index($0, version) > 0) { found = 1; next }
+            }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::Could not extract release notes for v$RELEASE_VERSION from CHANGELOG.md"
+            exit 1
+          fi
 
       - name: Pack npm artifact
         run: npm pack

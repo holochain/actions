@@ -60,7 +60,7 @@ jobs:
       - name: Install git-cliff
         uses: taiki-e/install-action@v2
         with:
-          tool: git-cliff@2.12.0
+          tool: git-cliff@2.13.1
 
       - name: Install cargo-workspaces
         uses: taiki-e/install-action@v2

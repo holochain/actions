@@ -55,16 +55,16 @@ jobs:
             *) echo "::error::Unsupported package_manager '$PACKAGE_MANAGER'. Must be one of: npm, yarn, pnpm." && exit 1 ;;
           esac
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Setup pnpm
         if: inputs.package_manager == 'pnpm'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.node_version }}
           registry-url: "https://registry.npmjs.org"

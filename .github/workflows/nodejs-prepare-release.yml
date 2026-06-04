@@ -43,16 +43,16 @@ jobs:
             *) echo "::error::Unsupported package_manager '$PACKAGE_MANAGER'. Must be one of: npm, yarn, pnpm." && exit 1 ;;
           esac
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Setup pnpm
         if: inputs.package_manager == 'pnpm'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.node_version }}
 
@@ -101,7 +101,7 @@ jobs:
         run: git-cliff --config-url="$CLIFF_CONFIG_URL" --tag "v$RELEASE_VERSION" --unreleased --prepend CHANGELOG.md
 
       - name: Create release PR
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GH_TOKEN }}
           commit-message: "chore: release v${{ steps.version.outputs.value }}"

@@ -18,10 +18,6 @@ on:
         description: "npm script name to run for building the project"
         default: "build"
         required: false
-    secrets:
-      NPM_TOKEN:
-        description: "npm authentication token for publishing"
-        required: true
 
 jobs:
   check:
@@ -150,7 +146,6 @@ jobs:
       - name: Publish to npm
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.value }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           PACKAGE_NAME=$(node -p "require('./package.json').name")
           if npm view "$PACKAGE_NAME@$RELEASE_VERSION" > /dev/null 2>&1; then

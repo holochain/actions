@@ -111,7 +111,10 @@ jobs:
           git push origin "v$RELEASE_VERSION"
 
       - name: Pack npm artifact
-        run: npm pack
+        id: pack
+        run: |
+          TARBALL=$(npm pack)
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
 
       - name: Extract release notes from changelog
         env:
@@ -142,7 +145,7 @@ jobs:
             --title "v$RELEASE_VERSION" \
             --notes-file release-notes.md \
             $PRERELEASE_FLAG \
-            ./*.tgz
+            "${{ steps.pack.outputs.tarball }}"
 
       - name: Publish to npm
         env:
@@ -155,7 +158,7 @@ jobs:
             exit 1
           fi
           if [[ "$RELEASE_VERSION" == *"-"* ]]; then
-            npm publish --access public --provenance --tag next
+            npm publish "${{ steps.pack.outputs.tarball }}" --access public --provenance --tag next
           else
-            npm publish --access public --provenance
+            npm publish "${{ steps.pack.outputs.tarball }}" --access public --provenance
           fi

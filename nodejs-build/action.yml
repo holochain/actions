@@ -1,0 +1,28 @@
+name: Build Node.js project
+description: Run the build script for a Node.js project
+
+inputs:
+  package_manager:
+    description: "Package manager used by the project: npm, yarn, or pnpm"
+    default: "npm"
+    required: false
+  build_script:
+    description: "npm script name to run for building the project"
+    default: "build"
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Build
+      shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ inputs.package_manager }}
+        BUILD_SCRIPT: ${{ inputs.build_script }}
+      run: |
+        case "$PACKAGE_MANAGER" in
+          yarn) yarn "$BUILD_SCRIPT" ;;
+          pnpm) pnpm run "$BUILD_SCRIPT" ;;
+          npm) npm run "$BUILD_SCRIPT" ;;
+          *) echo "::error::Unsupported package_manager '$PACKAGE_MANAGER'. Must be one of: npm, yarn, pnpm." && exit 1 ;;
+        esac

@@ -1,0 +1,51 @@
+name: Setup Node.js for release
+description: Validate package manager, set up Node.js, and install dependencies
+
+inputs:
+  node_version:
+    description: "Node.js version to use"
+    default: "24"
+    required: false
+  package_manager:
+    description: "Package manager used by the project: npm, yarn, or pnpm"
+    default: "npm"
+    required: false
+  cache:
+    description: "Whether to cache package manager dependencies"
+    default: "true"
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Validate inputs
+      shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ inputs.package_manager }}
+      run: |
+        case "$PACKAGE_MANAGER" in
+          npm|yarn|pnpm) ;;
+          *) echo "::error::Unsupported package_manager '$PACKAGE_MANAGER'. Must be one of: npm, yarn, pnpm." && exit 1 ;;
+        esac
+
+    - name: Setup pnpm
+      if: inputs.package_manager == 'pnpm'
+      uses: pnpm/action-setup@v6
+
+    - uses: actions/setup-node@v6
+      with:
+        node-version: ${{ inputs.node_version }}
+        registry-url: "https://registry.npmjs.org"
+        cache: ${{ inputs.cache == 'true' && inputs.package_manager || '' }}
+        package-manager-cache: false
+
+    - name: Install dependencies
+      shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ inputs.package_manager }}
+      run: |
+        case "$PACKAGE_MANAGER" in
+          yarn) yarn install --frozen-lockfile ;;
+          pnpm) pnpm install --frozen-lockfile ;;
+          npm) npm ci ;;
+        esac

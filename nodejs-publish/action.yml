@@ -1,0 +1,88 @@
+name: Publish Node.js release
+description: Create a git tag, GitHub release, and publish to npm
+
+inputs:
+  npm_token:
+    description: "npm authentication token for publishing, leave blank if using Trusted Publishers"
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Get version
+      id: version
+      shell: bash
+      run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+    - name: Create and push tag
+      shell: bash
+      env:
+        RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+        if git ls-remote --tags origin "v$RELEASE_VERSION" | grep -q .; then
+          echo "::error::Tag v$RELEASE_VERSION already exists. Was this release already published?"
+          exit 1
+        fi
+        git tag "v$RELEASE_VERSION"
+        git push origin "v$RELEASE_VERSION"
+
+    - name: Pack npm artifact
+      id: pack
+      shell: bash
+      run: |
+        TARBALL=$(npm pack)
+        echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+
+    - name: Extract release notes from changelog
+      shell: bash
+      env:
+        RELEASE_VERSION: ${{ steps.version.outputs.value }}
+      run: |
+        awk -v version="$RELEASE_VERSION" '
+          /^## / {
+            if (found) exit
+            if (index($0, version) > 0) { found = 1; next }
+          }
+          found { print }
+        ' CHANGELOG.md > release-notes.md
+        if [ ! -s release-notes.md ]; then
+          echo "::error::Could not extract release notes for v$RELEASE_VERSION from CHANGELOG.md"
+          exit 1
+        fi
+
+    - name: Create GitHub release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RELEASE_VERSION: ${{ steps.version.outputs.value }}
+      run: |
+        PRERELEASE_FLAG=""
+        if [[ "$RELEASE_VERSION" == *"-"* ]]; then
+          PRERELEASE_FLAG="--prerelease"
+        fi
+        gh release create "v$RELEASE_VERSION" \
+          --title "v$RELEASE_VERSION" \
+          --notes-file release-notes.md \
+          $PRERELEASE_FLAG \
+          "${{ steps.pack.outputs.tarball }}"
+
+    - name: Publish to npm
+      shell: bash
+      env:
+        RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
+      run: |
+        PACKAGE_NAME=$(node -p "require('./package.json').name")
+        if npm view "$PACKAGE_NAME@$RELEASE_VERSION" > /dev/null 2>&1; then
+          echo "::error::$PACKAGE_NAME@$RELEASE_VERSION is already published to npm. Was this release already published?"
+          exit 1
+        fi
+        if [[ "$RELEASE_VERSION" == *"-"* ]]; then
+          npm publish "${{ steps.pack.outputs.tarball }}" --access public --provenance --tag next
+        else
+          npm publish "${{ steps.pack.outputs.tarball }}" --access public --provenance
+        fi

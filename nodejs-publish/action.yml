@@ -40,6 +40,7 @@ runs:
       env:
         RELEASE_VERSION: ${{ steps.version.outputs.value }}
         NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
+        GITHUB_TOKEN: ${{ github.token }} # Required for napi-rs support
       run: |
         if [[ "$RELEASE_VERSION" == *"-"* ]]; then
           npm publish --access public --provenance --tag next

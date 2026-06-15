@@ -47,7 +47,7 @@ runs:
           npm publish --access public --provenance
         fi
 
-    # Must publish before packing so that the prepublishOnly script is run on the package.
+    # Package the release after the publish step so that the prepublishOnly script is run.
     - name: Pack npm artifact
       id: pack
       shell: bash

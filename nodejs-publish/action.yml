@@ -72,7 +72,8 @@ runs:
           exit 1
         fi
 
-    - name: Create GitHub release
+    # If the release exists now but not in the check step then it was most likely created during the publish, for example with napi-rs.
+    - name: Create or update GitHub release
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -82,8 +83,18 @@ runs:
         if [[ "$RELEASE_VERSION" == *"-"* ]]; then
           PRERELEASE_FLAG="--prerelease"
         fi
-        gh release create "v$RELEASE_VERSION" \
-          --title "v$RELEASE_VERSION" \
-          --notes-file /tmp/release-notes.md \
-          $PRERELEASE_FLAG \
-          "${{ steps.pack.outputs.tarball }}"
+        if gh release view "v$RELEASE_VERSION" > /dev/null 2>&1; then
+          TAG_COMMIT=$(gh api "repos/${{ github.repository }}/commits/v$RELEASE_VERSION" --jq '.sha')
+          if [ "$TAG_COMMIT" != "$GITHUB_SHA" ]; then
+            echo "::error::Release v$RELEASE_VERSION exists but its tag points to a different commit. Was this release already published?"
+            exit 1
+          fi
+          gh release edit "v$RELEASE_VERSION" --title "v$RELEASE_VERSION" --notes-file /tmp/release-notes.md $PRERELEASE_FLAG
+          gh release upload "v$RELEASE_VERSION" "${{ steps.pack.outputs.tarball }}"
+        else
+          gh release create "v$RELEASE_VERSION" \
+            --title "v$RELEASE_VERSION" \
+            --notes-file /tmp/release-notes.md \
+            $PRERELEASE_FLAG \
+            "${{ steps.pack.outputs.tarball }}"
+        fi

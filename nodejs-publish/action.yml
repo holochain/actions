@@ -1,5 +1,5 @@
 name: Publish Node.js release
-description: Create a GitHub release and publish to npm
+description: Create a git tag, GitHub release, and publish to npm
 
 inputs:
   npm_token:
@@ -33,6 +33,22 @@ runs:
         if [ -n "$TAG_COMMIT" ] && [ "$TAG_COMMIT" != "$GITHUB_SHA" ]; then
           echo "::error::Tag v$RELEASE_VERSION already exists, without a release, on a different commit. Delete the tag if you want a new release."
           exit 1
+        fi
+
+    # Tag must exist before npm publish so napi-rs uses it instead of HEAD
+    - name: Create and push tag
+      shell: bash
+      env:
+        RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+        TAG_COMMIT=$(git rev-list -n 1 "v$RELEASE_VERSION" 2>/dev/null || echo "")
+        if [ "$TAG_COMMIT" != "$GITHUB_SHA" ]; then
+          git tag -a "v$RELEASE_VERSION" -m "v$RELEASE_VERSION"
+          git push origin "v$RELEASE_VERSION"
         fi
 
     - name: Publish to npm

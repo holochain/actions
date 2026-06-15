@@ -1,5 +1,5 @@
 name: Setup Node.js for release
-description: Validate package manager, set up Node.js, and install dependencies
+description: Validate package manager and set up Node.js, optionally installing dependencies
 
 inputs:
   node_version:
@@ -13,6 +13,10 @@ inputs:
   cache:
     description: "Whether to cache package manager dependencies"
     default: "true"
+    required: false
+  install_deps:
+    description: "Whether to install dependencies after setting up Node.js"
+    default: "false"
     required: false
 
 runs:
@@ -40,6 +44,7 @@ runs:
         package-manager-cache: false
 
     - name: Install dependencies
+      if: inputs.install_deps == 'true'
       shell: bash
       env:
         PACKAGE_MANAGER: ${{ inputs.package_manager }}

@@ -66,6 +66,11 @@ runs:
           echo "::error::Release v$RELEASE_VERSION already exists. Was this release already published?"
           exit 1
         fi
+        TAG_COMMIT=$(git rev-list -n 1 "v$RELEASE_VERSION" 2>/dev/null || echo "")
+        if [ -n "$TAG_COMMIT" ] && [ "$TAG_COMMIT" != "$GITHUB_SHA" ]; then
+          echo "::error::Tag v$RELEASE_VERSION already exists, without a release, on a different commit. Was this release already published?"
+          exit 1
+        fi
         PRERELEASE_FLAG=""
         if [[ "$RELEASE_VERSION" == *"-"* ]]; then
           PRERELEASE_FLAG="--prerelease"

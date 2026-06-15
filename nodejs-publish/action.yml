@@ -14,6 +14,31 @@ runs:
       shell: bash
       run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
+    - name: Publish to npm
+      shell: bash
+      env:
+        RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
+      run: |
+        PACKAGE_NAME=$(node -p "require('./package.json').name")
+        if npm view "$PACKAGE_NAME@$RELEASE_VERSION" > /dev/null 2>&1; then
+          echo "::error::$PACKAGE_NAME@$RELEASE_VERSION is already published to npm. Was this release already published?"
+          exit 1
+        fi
+        if [[ "$RELEASE_VERSION" == *"-"* ]]; then
+          npm publish --access public --provenance --tag next
+        else
+          npm publish --access public --provenance
+        fi
+
+    # Must publish before packing so that the prepublishOnly script is run on the package.
+    - name: Pack npm artifact
+      id: pack
+      shell: bash
+      run: |
+        TARBALL=$(npm pack)
+        echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+
     - name: Create and push tag
       shell: bash
       env:
@@ -29,13 +54,6 @@ runs:
         fi
         git tag "v$RELEASE_VERSION"
         git push origin "v$RELEASE_VERSION"
-
-    - name: Pack npm artifact
-      id: pack
-      shell: bash
-      run: |
-        TARBALL=$(npm pack)
-        echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
 
     - name: Extract release notes from changelog
       shell: bash
@@ -69,20 +87,3 @@ runs:
           --notes-file release-notes.md \
           $PRERELEASE_FLAG \
           "${{ steps.pack.outputs.tarball }}"
-
-    - name: Publish to npm
-      shell: bash
-      env:
-        RELEASE_VERSION: ${{ steps.version.outputs.value }}
-        NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
-      run: |
-        PACKAGE_NAME=$(node -p "require('./package.json').name")
-        if npm view "$PACKAGE_NAME@$RELEASE_VERSION" > /dev/null 2>&1; then
-          echo "::error::$PACKAGE_NAME@$RELEASE_VERSION is already published to npm. Was this release already published?"
-          exit 1
-        fi
-        if [[ "$RELEASE_VERSION" == *"-"* ]]; then
-          npm publish "${{ steps.pack.outputs.tarball }}" --access public --provenance --tag next
-        else
-          npm publish "${{ steps.pack.outputs.tarball }}" --access public --provenance
-        fi

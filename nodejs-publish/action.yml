@@ -66,8 +66,8 @@ runs:
             if (index($0, version) > 0) { found = 1; next }
           }
           found { print }
-        ' CHANGELOG.md > release-notes.md
-        if [ ! -s release-notes.md ]; then
+        ' CHANGELOG.md > /tmp/release-notes.md
+        if [ ! -s /tmp/release-notes.md ]; then
           echo "::error::Could not extract release notes for v$RELEASE_VERSION from CHANGELOG.md"
           exit 1
         fi
@@ -84,6 +84,6 @@ runs:
         fi
         gh release create "v$RELEASE_VERSION" \
           --title "v$RELEASE_VERSION" \
-          --notes-file release-notes.md \
+          --notes-file /tmp/release-notes.md \
           $PRERELEASE_FLAG \
           "${{ steps.pack.outputs.tarball }}"

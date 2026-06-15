@@ -14,17 +14,33 @@ runs:
       shell: bash
       run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
+    - name: Check version does not already exist
+      shell: bash
+      env:
+        RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        PACKAGE_NAME=$(node -p "require('./package.json').name")
+        if npm view "$PACKAGE_NAME@$RELEASE_VERSION" > /dev/null 2>&1; then
+          echo "::error::$PACKAGE_NAME@$RELEASE_VERSION is already published to npm."
+          exit 1
+        fi
+        if gh release view "v$RELEASE_VERSION" > /dev/null 2>&1; then
+          echo "::error::Release v$RELEASE_VERSION already exists on GitHub but was not published to NPM. Publish it manually."
+          exit 1
+        fi
+        TAG_COMMIT=$(git rev-list -n 1 "v$RELEASE_VERSION" 2>/dev/null || echo "")
+        if [ -n "$TAG_COMMIT" ] && [ "$TAG_COMMIT" != "$GITHUB_SHA" ]; then
+          echo "::error::Tag v$RELEASE_VERSION already exists, without a release, on a different commit. Delete the tag if you want a new release."
+          exit 1
+        fi
+
     - name: Publish to npm
       shell: bash
       env:
         RELEASE_VERSION: ${{ steps.version.outputs.value }}
         NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
       run: |
-        PACKAGE_NAME=$(node -p "require('./package.json').name")
-        if npm view "$PACKAGE_NAME@$RELEASE_VERSION" > /dev/null 2>&1; then
-          echo "::error::$PACKAGE_NAME@$RELEASE_VERSION is already published to npm. Was this release already published?"
-          exit 1
-        fi
         if [[ "$RELEASE_VERSION" == *"-"* ]]; then
           npm publish --access public --provenance --tag next
         else
@@ -62,15 +78,6 @@ runs:
         GH_TOKEN: ${{ github.token }}
         RELEASE_VERSION: ${{ steps.version.outputs.value }}
       run: |
-        if gh release view "v$RELEASE_VERSION" > /dev/null 2>&1; then
-          echo "::error::Release v$RELEASE_VERSION already exists. Was this release already published?"
-          exit 1
-        fi
-        TAG_COMMIT=$(git rev-list -n 1 "v$RELEASE_VERSION" 2>/dev/null || echo "")
-        if [ -n "$TAG_COMMIT" ] && [ "$TAG_COMMIT" != "$GITHUB_SHA" ]; then
-          echo "::error::Tag v$RELEASE_VERSION already exists, without a release, on a different commit. Was this release already published?"
-          exit 1
-        fi
         PRERELEASE_FLAG=""
         if [[ "$RELEASE_VERSION" == *"-"* ]]; then
           PRERELEASE_FLAG="--prerelease"

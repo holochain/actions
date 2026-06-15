@@ -22,6 +22,11 @@ on:
         description: "Package manager used by the project: npm, yarn, or pnpm"
         default: "npm"
         required: false
+      install_deps:
+        type: boolean
+        description: "Whether to install dependencies before preparing the release"
+        default: false
+        required: false
     secrets:
       GH_TOKEN:
         description: "GitHub token with permission to create pull requests"
@@ -31,27 +36,16 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     steps:
-      - name: Validate inputs
-        env:
-          PACKAGE_MANAGER: ${{ inputs.package_manager }}
-        run: |
-          case "$PACKAGE_MANAGER" in
-            npm|yarn|pnpm) ;;
-            *) echo "::error::Unsupported package_manager '$PACKAGE_MANAGER'. Must be one of: npm, yarn, pnpm." && exit 1 ;;
-          esac
-
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Setup pnpm
-        if: inputs.package_manager == 'pnpm'
-        uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v6
+      - uses: ./nodejs-setup
         with:
-          node-version: ${{ inputs.node_version }}
+          node_version: ${{ inputs.node_version }}
+          package_manager: ${{ inputs.package_manager }}
+          install_deps: ${{ inputs.install_deps }}
 
       - name: Install git-cliff
         uses: taiki-e/install-action@v2

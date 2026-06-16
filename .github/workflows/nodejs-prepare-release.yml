@@ -15,7 +15,7 @@ on:
       node_version:
         type: string
         description: "Node.js version to use"
-        default: "22"
+        default: "24"
         required: false
       package_manager:
         type: string

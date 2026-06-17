@@ -1,0 +1,71 @@
+name: Release Actions
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release with optional 'v' prefix (e.g. v1.15.0)"
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate version
+        id: version
+        env:
+          RAW_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          VERSION="v${RAW_VERSION#v}"
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '${VERSION}' is not a valid semver (expected vX.Y.Z)"
+            exit 1
+          fi
+          if git ls-remote --tags origin "refs/tags/${VERSION}" | grep -q .; then
+            echo "::error::Tag ${VERSION} already exists"
+            exit 1
+          fi
+          echo "value=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Reset stable branch to main
+        run: git checkout -B stable origin/main
+
+      - name: Pin internal action refs to release version
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        shell: bash
+        run: |
+          find .github/workflows \( -name "*.yml" -o -name "*.yaml" \) -exec sed -i \
+            "s|holochain/actions/\([^@]*\)@main|holochain/actions/\1@${VERSION}|g" \
+            {} +
+
+      - name: Commit and push stable branch
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          git add .github/workflows/
+          git commit -m "chore: release ${VERSION}"
+          git push --force origin stable
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          gh release create "${VERSION}" \
+            --title "${VERSION}" \
+            --generate-notes \
+            --target stable

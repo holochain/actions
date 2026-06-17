@@ -18,11 +18,27 @@ jobs:
         run: ${{ steps.get_actionlint.outputs.executable }} -color
         shell: bash
 
+  check-action-refs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check internal action refs use @main
+        shell: bash
+        run: |
+          violations=$(grep -rnP "^\s*-?\s*uses:\s*[\"']?holochain/actions/[^@\"']*@(?!main(\s|#|[\"']|$))" .github/workflows/ || true)
+          if [ -n "$violations" ]; then
+            echo "::error::Internal action refs must use @main on development branches. Run the release workflow to pin refs to a version."
+            echo "$violations"
+            exit 1
+          fi
+
   ci_pass:
     if: ${{ always() }}
     runs-on: "ubuntu-latest"
     needs:
       - actionlint
+      - check-action-refs
     steps:
       - name: check status
         uses: re-actors/alls-green@release/v1

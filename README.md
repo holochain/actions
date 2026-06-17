@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Send Mattermost message
-        uses: holochain/actions/mattermost-notify@main
+        uses: holochain/actions/mattermost-notify@stable
         with:
           mattermost_url: https://chat.example.com
           channel_id: your_channel_id

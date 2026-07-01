@@ -97,6 +97,7 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
         RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        TARBALL: ${{ steps.pack.outputs.tarball }}
       run: |
         PRERELEASE_FLAG=""
         if [[ "$RELEASE_VERSION" == *"-"* ]]; then
@@ -109,11 +110,11 @@ runs:
             exit 1
           fi
           gh release edit "v$RELEASE_VERSION" --title "v$RELEASE_VERSION" --notes-file /tmp/release-notes.md $PRERELEASE_FLAG
-          gh release upload "v$RELEASE_VERSION" "${{ steps.pack.outputs.tarball }}" --clobber
+          gh release upload "v$RELEASE_VERSION" "$TARBALL" --clobber
         else
           gh release create "v$RELEASE_VERSION" \
             --title "v$RELEASE_VERSION" \
             --notes-file /tmp/release-notes.md \
             $PRERELEASE_FLAG \
-            "${{ steps.pack.outputs.tarball }}"
+            "$TARBALL"
         fi

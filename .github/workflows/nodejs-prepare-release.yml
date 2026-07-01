@@ -41,14 +41,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: holochain/actions/nodejs-setup@v1.14.0
+      - uses: holochain/actions/nodejs-setup@main # zizmor: ignore[unpinned-uses] repo PR guard requires internal refs to use @main until the release workflow pins them.
         with:
           node_version: ${{ inputs.node_version }}
           package_manager: ${{ inputs.package_manager }}
           install_deps: ${{ inputs.install_deps }}
 
       - name: Install git-cliff
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2.82.7
         with:
           tool: git-cliff@2.13.1
 
@@ -92,7 +92,7 @@ jobs:
         run: git-cliff --config-url="$CLIFF_CONFIG_URL" --tag "v$RELEASE_VERSION" --unreleased --prepend CHANGELOG.md
 
       - name: Create release PR
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GH_TOKEN }}
           commit-message: "chore: release v${{ steps.version.outputs.value }}"

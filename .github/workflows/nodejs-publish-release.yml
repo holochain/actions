@@ -33,10 +33,38 @@ jobs:
         id: label
         env:
           GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
         run: |
-          RESULT=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/pulls \
-            --jq 'any(.[].labels[].name; . == "hra-release")' 2>/dev/null || echo "false")
-          echo "result=$RESULT" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+
+          # The commits/{sha}/pulls endpoint is eventually consistent: right
+          # after a merge it can return an empty array for tens of seconds
+          # before the commit gets associated with its PR. We retry ONLY while
+          # the array is empty (the actual race). Once a PR is associated we
+          # trust its labels and stop, so non-release merges never wait.
+          attempts=5
+          delay=30
+          result="false"
+
+          for i in $(seq 1 "$attempts"); do
+            pulls=$(gh api "repos/${REPOSITORY}/commits/${COMMIT_SHA}/pulls" 2>/dev/null || echo "[]")
+            count=$(echo "$pulls" | jq 'length')
+
+            if [ "$count" -gt 0 ]; then
+              result=$(echo "$pulls" | jq -r 'any(.[].labels[].name; . == "hra-release")')
+              echo "Found $count associated PR(s) on attempt $i/$attempts; is-release=$result"
+              break
+            fi
+
+            echo "No PR associated with ${COMMIT_SHA} yet (attempt $i/$attempts)"
+            if [ "$i" -lt "$attempts" ]; then
+              echo "Retrying in ${delay}s to let the GitHub API catch up..."
+              sleep "$delay"
+            fi
+          done
+
+          echo "result=$result" >> "$GITHUB_OUTPUT"
 
   publish:
     needs: check
@@ -51,18 +79,18 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: holochain/actions/nodejs-setup@v1.14.0
+      - uses: holochain/actions/nodejs-setup@main # zizmor: ignore[unpinned-uses] repo PR guard requires internal refs to use @main until the release workflow pins them.
         with:
           node_version: ${{ inputs.node_version }}
           package_manager: ${{ inputs.package_manager }}
           cache: false # never use caching in release builds
           install_deps: true
 
-      - uses: holochain/actions/nodejs-build@v1.14.0
+      - uses: holochain/actions/nodejs-build@main # zizmor: ignore[unpinned-uses] repo PR guard requires internal refs to use @main until the release workflow pins them.
         with:
           package_manager: ${{ inputs.package_manager }}
           build_script: ${{ inputs.build_script }}
 
-      - uses: holochain/actions/nodejs-publish@v1.14.0
+      - uses: holochain/actions/nodejs-publish@main # zizmor: ignore[unpinned-uses] repo PR guard requires internal refs to use @main until the release workflow pins them.
         with:
           npm_token: ${{ secrets.NPM_TOKEN }}

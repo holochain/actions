@@ -5,24 +5,51 @@ inputs:
   npm_token:
     description: "npm authentication token for publishing, leave blank if using Trusted Publishers"
     required: false
+  workspace_main_package:
+    description: "Path to the package.json of the main package in a workspace project. Required when the project uses workspaces."
+    required: false
 
 runs:
   using: composite
   steps:
-    - name: Get version
-      id: version
+    - name: Detect if project is a workspace
+      id: detect-workspace
       shell: bash
       run: |
-        VERSION=$(node -p "require('./package.json').version")
-        echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+        if node -e "const p = require('./package.json'); process.exit(p.workspaces ? 0 : 1)" 2>/dev/null; then
+          echo "is_workspace=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "is_workspace=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Get details of package to release
+      id: package_details
+      shell: bash
+      env:
+        IS_WORKSPACE: ${{ steps.detect-workspace.outputs.is_workspace }}
+        WORKSPACE_MAIN_PACKAGE: ${{ inputs.workspace_main_package }}
+      run: |
+        if [ "$IS_WORKSPACE" = "true" ]; then
+          if [ -z "$WORKSPACE_MAIN_PACKAGE" ]; then
+            echo "::error::workspace_main_package input is required for workspace projects"
+            exit 1
+          fi
+          PKG_FILE=$(node -e "const p=require('path');console.log(p.resolve(process.cwd(),process.env.WORKSPACE_MAIN_PACKAGE))")
+        else
+          PKG_FILE="$(pwd)/package.json"
+        fi
+        VERSION=$(PKG_FILE="$PKG_FILE" node -p "require(process.env.PKG_FILE).version")
+        NAME=$(PKG_FILE="$PKG_FILE" node -p "require(process.env.PKG_FILE).name")
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
     - name: Check version does not already exist
       shell: bash
       env:
-        RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        RELEASE_VERSION: ${{ steps.package_details.outputs.version }}
+        PACKAGE_NAME: ${{ steps.package_details.outputs.name }}
         GH_TOKEN: ${{ github.token }}
       run: |
-        PACKAGE_NAME=$(node -p "require('./package.json').name")
         if npm view "$PACKAGE_NAME@$RELEASE_VERSION" > /dev/null 2>&1; then
           echo "::error::$PACKAGE_NAME@$RELEASE_VERSION is already published to npm."
           exit 1
@@ -41,7 +68,7 @@ runs:
     - name: Create and push tag
       shell: bash
       env:
-        RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        RELEASE_VERSION: ${{ steps.package_details.outputs.version }}
         GH_TOKEN: ${{ github.token }}
       run: |
         git config user.name "github-actions[bot]"
@@ -56,28 +83,39 @@ runs:
     - name: Publish to npm
       shell: bash
       env:
-        RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        RELEASE_VERSION: ${{ steps.package_details.outputs.version }}
         NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
         GITHUB_TOKEN: ${{ github.token }} # Required for napi-rs support
+        IS_WORKSPACE: ${{ steps.detect-workspace.outputs.is_workspace }}
       run: |
+        WORKSPACES_FLAGS=()
+        if [ "$IS_WORKSPACE" = "true" ]; then
+          WORKSPACES_FLAGS=("--workspaces")
+        fi
         if [[ "$RELEASE_VERSION" == *"-"* ]]; then
-          npm publish --access public --provenance --tag next
+          npm publish "${WORKSPACES_FLAGS[@]}" --access public --provenance --tag next
         else
-          npm publish --access public --provenance
+          npm publish "${WORKSPACES_FLAGS[@]}" --access public --provenance
         fi
 
     # Package the release after the publish step so that the prepublishOnly script is run.
     - name: Pack npm artifact
       id: pack
       shell: bash
+      env:
+        IS_WORKSPACE: ${{ steps.detect-workspace.outputs.is_workspace }}
       run: |
-        TARBALL=$(npm pack)
-        echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+        WORKSPACES_FLAGS=()
+        if [ "$IS_WORKSPACE" = "true" ]; then
+          WORKSPACES_FLAGS=("--workspaces")
+        fi
+        TARBALLS=$(npm pack "${WORKSPACES_FLAGS[@]}" | tr '\n' ' ' | xargs)
+        echo "tarballs=$TARBALLS" >> "$GITHUB_OUTPUT"
 
     - name: Extract release notes from changelog
       shell: bash
       env:
-        RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        RELEASE_VERSION: ${{ steps.package_details.outputs.version }}
       run: |
         awk -v version="$RELEASE_VERSION" '
           /^## / {
@@ -96,13 +134,14 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
-        RELEASE_VERSION: ${{ steps.version.outputs.value }}
-        TARBALL: ${{ steps.pack.outputs.tarball }}
+        RELEASE_VERSION: ${{ steps.package_details.outputs.version }}
+        TARBALLS: ${{ steps.pack.outputs.tarballs }}
       run: |
         RELEASE_FLAGS=()
         if [[ "$RELEASE_VERSION" == *"-"* ]]; then
           RELEASE_FLAGS+=("--prerelease")
         fi
+        read -ra TARBALL_ARGS <<< "$TARBALLS"
         if gh release view "v$RELEASE_VERSION" > /dev/null 2>&1; then
           TAG_COMMIT=$(gh api "repos/${{ github.repository }}/commits/v$RELEASE_VERSION" --jq '.sha')
           if [ "$TAG_COMMIT" != "$GITHUB_SHA" ]; then
@@ -110,11 +149,13 @@ runs:
             exit 1
           fi
           gh release edit "v$RELEASE_VERSION" --title "v$RELEASE_VERSION" --notes-file /tmp/release-notes.md "${RELEASE_FLAGS[@]}"
-          gh release upload "v$RELEASE_VERSION" "$TARBALL" --clobber
+          for tarball in "${TARBALL_ARGS[@]}"; do
+            gh release upload "v$RELEASE_VERSION" "$tarball" --clobber
+          done
         else
           gh release create "v$RELEASE_VERSION" \
             --title "v$RELEASE_VERSION" \
             --notes-file /tmp/release-notes.md \
             "${RELEASE_FLAGS[@]}" \
-            "$TARBALL"
+            "${TARBALL_ARGS[@]}"
         fi

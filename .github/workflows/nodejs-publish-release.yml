@@ -18,6 +18,10 @@ on:
         description: "npm script name to run for building the project"
         default: "build"
         required: false
+      workspace_main_package:
+        type: string
+        description: "Path to the package.json of the main package in a workspace project. Required when the project is a workspace and is used to get the version from and check if it is already published."
+        required: false
     secrets:
       NPM_TOKEN:
         description: "npm authentication token for publishing, leave blank if using Trusted Publishers"
@@ -94,3 +98,4 @@ jobs:
       - uses: holochain/actions/nodejs-publish@main
         with:
           npm_token: ${{ secrets.NPM_TOKEN }}
+          workspace_main_package: ${{ inputs.workspace_main_package }}

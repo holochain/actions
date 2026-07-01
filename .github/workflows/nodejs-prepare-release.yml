@@ -79,10 +79,32 @@ jobs:
           RELEASE_VERSION: ${{ steps.version.outputs.value }}
           PACKAGE_MANAGER: ${{ inputs.package_manager }}
         run: |
+          IS_WORKSPACE=false
+          if node -e "const p = require('./package.json'); process.exit(p.workspaces ? 0 : 1)" 2>/dev/null; then
+            IS_WORKSPACE=true
+          fi
           case "$PACKAGE_MANAGER" in
-            yarn) yarn version --new-version "$RELEASE_VERSION" --no-git-tag-version ;;
-            pnpm) pnpm version "$RELEASE_VERSION" --no-git-tag-version ;;
-            npm) npm version "$RELEASE_VERSION" --no-git-tag-version ;;
+            yarn)
+              if [ "$IS_WORKSPACE" = "true" ]; then
+                echo "::error::Workspace version bumping is not supported for yarn by this workflow. Use npm instead."
+                exit 1
+              fi
+              yarn version --new-version "$RELEASE_VERSION" --no-git-tag-version
+              ;;
+            pnpm)
+              if [ "$IS_WORKSPACE" = "true" ]; then
+                echo "::error::Workspace version bumping is not supported for pnpm by this workflow. Use npm instead."
+                exit 1
+              fi
+              pnpm version "$RELEASE_VERSION" --no-git-tag-version
+              ;;
+            npm)
+              if [ "$IS_WORKSPACE" = "true" ]; then
+                npm version "$RELEASE_VERSION" --no-git-tag-version --workspaces
+              else
+                npm version "$RELEASE_VERSION" --no-git-tag-version
+              fi
+              ;;
           esac
 
       - name: Generate changelog

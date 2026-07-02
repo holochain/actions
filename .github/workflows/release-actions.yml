@@ -37,6 +37,13 @@ jobs:
           fi
           echo "value=${VERSION}" >> "$GITHUB_OUTPUT"
 
+      - name: Get previous tag
+        id: previous_tag
+        shell: bash
+        run: |
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | head -1)
+          echo "value=${PREVIOUS_TAG}" >> "$GITHUB_OUTPUT"
+
       - name: Configure git
         run: |
           git config user.name "GitHub Actions"
@@ -66,8 +73,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.value }}
+          PREVIOUS_TAG: ${{ steps.previous_tag.outputs.value }}
         run: |
           gh release create "${VERSION}" \
             --title "${VERSION}" \
             --generate-notes \
+            --notes-start-tag "$PREVIOUS_TAG" \
             --target stable

@@ -109,7 +109,7 @@ runs:
             exit 1
           fi
           gh release edit "v$RELEASE_VERSION" --title "v$RELEASE_VERSION" --notes-file /tmp/release-notes.md $PRERELEASE_FLAG
-          gh release upload "v$RELEASE_VERSION" "${{ steps.pack.outputs.tarball }}"
+          gh release upload "v$RELEASE_VERSION" "${{ steps.pack.outputs.tarball }}" --clobber
         else
           gh release create "v$RELEASE_VERSION" \
             --title "v$RELEASE_VERSION" \

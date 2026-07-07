@@ -42,6 +42,92 @@ The workflow will:
 > the tag reference. Because of this, no manual changes should be made to the
 > `stable` branch as they will be dropped on the next release.
 
+## Node.js release process
+
+This repo provides two reusable workflows for releasing Node.js packages.
+They implement a two-step process:
+
+1. Prepare a release PR that bumps the version and generates the changelog
+   using git-cliff.
+1. Publishes the release as an npm package and GitHub release once the prepare
+   release PR is merged.
+
+### Reusable workflows
+
+#### `nodejs-prepare-release`
+
+Determines the next version (via [git-cliff](https://git-cliff.org/) or a
+manual override), bumps the versions of all packages, generates a changelog,
+and opens a release PR with the `hra-release` label.
+
+```yaml
+jobs:
+  prepare:
+    uses: holochain/actions/.github/workflows/nodejs-prepare-release.yml@stable
+    with:
+      # required: URL to the git-cliff config to use, the usual one for Holochain projects is
+      cliff_config_url: https://raw.githubusercontent.com/holochain/release-integration/refs/heads/main/pre-1.0-cliff.toml
+      # force_version: "1.2.3"    # optional: skip version auto-detection and set version to this
+      # node_version: "24"        # default: 24
+      # package_manager: "npm"    # default: npm. One of: npm, yarn, pnpm
+      # install_deps: false       # default: false. Required by some process such as napi-rs projects
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }} # Used to create the PR and trigger the CI workflows so must not use the default GitHub token.
+```
+
+#### `nodejs-publish-release`
+
+Runs on every push to `main`. If the triggering commit came from a PR with the
+`hra-release` label, it installs dependencies, builds, publishes to npm, and
+creates a GitHub release. Non-release merges are skipped automatically.
+
+```yaml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  publish:
+    uses: holochain/actions/.github/workflows/nodejs-publish-release.yml@stable
+    with:
+      # node_version: "24"         # default: 24
+      # package_manager: "npm"    # default: npm. One of: npm, yarn, pnpm
+      # build_script: "build"      # default: build
+      # workspace_main_package: "packages/pkg-1/package.json"  # required for workspace projects
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}  # omit if using npm Trusted Publishers
+```
+
+Pre-release versions (those containing a `-` in the version string, e.g.
+`1.0.0-alpha.1`) are published with the `next` tag on npm and marked as
+pre-releases on GitHub.
+
+### Using the individual actions
+
+For more complex workflows, the underlying composite actions can be used directly:
+
+- `holochain/actions/nodejs-setup@stable` — validates the package manager and
+  sets up Node.js, optionally installing dependencies
+- `holochain/actions/nodejs-build@stable` — runs the build script
+- `holochain/actions/nodejs-publish@stable` — checks the version, creates the
+  GitHub release, and publishes to npm
+
+### Workspace assumptions
+
+> [!Important]
+> Currently, only npm is supported as the package manager for workspace projects.
+
+- **Root `package.json` required**: the workspace must have a root
+  `package.json` with a `workspaces` field so the tooling can detect that it is
+  a workspace project.
+- **`workspace_main_package`**: the path to one package's `package.json` (e.g.
+  `packages/pkg-1/package.json`) must be provided. This package's `name` and
+  `version` are used to check whether the release has already been published to
+  npm.
+- **Shared version**: all packages in the workspace are expected to share the
+  same version. The prepare workflow bumps all packages to the same version
+  using `npm version --workspaces <version-number>`.
+
 ## Mattermost notifier action
 
 Composite action: `mattermost-notify/action.yml`

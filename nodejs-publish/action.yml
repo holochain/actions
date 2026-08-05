@@ -109,8 +109,9 @@ runs:
         if [ "$IS_WORKSPACE" = "true" ]; then
           WORKSPACES_FLAGS=("--workspaces")
         fi
-        TARBALLS=$(npm pack "${WORKSPACES_FLAGS[@]}" | tr '\n' ' ' | xargs)
-        echo "tarballs=$TARBALLS" >> "$GITHUB_OUTPUT"
+        PACK_DIR=$(mktemp -d "$RUNNER_TEMP/npm-pack-XXXXXX")
+        npm pack "${WORKSPACES_FLAGS[@]}" --pack-destination "$PACK_DIR"
+        echo "pack_dir=$PACK_DIR" >> "$GITHUB_OUTPUT"
 
     - name: Extract release notes from changelog
       shell: bash
@@ -135,13 +136,12 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
         RELEASE_VERSION: ${{ steps.package_details.outputs.version }}
-        TARBALLS: ${{ steps.pack.outputs.tarballs }}
+        PACK_DIR: ${{ steps.pack.outputs.pack_dir }}
       run: |
         RELEASE_FLAGS=()
         if [[ "$RELEASE_VERSION" == *"-"* ]]; then
           RELEASE_FLAGS+=("--prerelease")
         fi
-        read -ra TARBALL_ARGS <<< "$TARBALLS"
         if gh release view "v$RELEASE_VERSION" > /dev/null 2>&1; then
           TAG_COMMIT=$(gh api "repos/${{ github.repository }}/commits/v$RELEASE_VERSION" --jq '.sha')
           if [ "$TAG_COMMIT" != "$GITHUB_SHA" ]; then
@@ -149,13 +149,11 @@ runs:
             exit 1
           fi
           gh release edit "v$RELEASE_VERSION" --title "v$RELEASE_VERSION" --notes-file /tmp/release-notes.md "${RELEASE_FLAGS[@]}"
-          for tarball in "${TARBALL_ARGS[@]}"; do
-            gh release upload "v$RELEASE_VERSION" "$tarball" --clobber
-          done
+          gh release upload "v$RELEASE_VERSION" "$PACK_DIR"/*.tgz --clobber
         else
           gh release create "v$RELEASE_VERSION" \
             --title "v$RELEASE_VERSION" \
             --notes-file /tmp/release-notes.md \
             "${RELEASE_FLAGS[@]}" \
-            "${TARBALL_ARGS[@]}"
+            "$PACK_DIR"/*.tgz
         fi

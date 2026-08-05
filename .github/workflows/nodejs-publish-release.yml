@@ -83,19 +83,19 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: holochain/actions/nodejs-setup@main
+      - uses: holochain/actions/nodejs-setup@v1.17.0
         with:
           node_version: ${{ inputs.node_version }}
           package_manager: ${{ inputs.package_manager }}
           cache: false # never use caching in release builds
           install_deps: true
 
-      - uses: holochain/actions/nodejs-build@main
+      - uses: holochain/actions/nodejs-build@v1.17.0
         with:
           package_manager: ${{ inputs.package_manager }}
           build_script: ${{ inputs.build_script }}
 
-      - uses: holochain/actions/nodejs-publish@main
+      - uses: holochain/actions/nodejs-publish@v1.17.0
         with:
           npm_token: ${{ secrets.NPM_TOKEN }}
           workspace_main_package: ${{ inputs.workspace_main_package }}

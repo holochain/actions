@@ -71,7 +71,7 @@ jobs:
         uses: taiki-e/install-action@v2
         if: ${{ !inputs.skip_semver_checks }}
         with:
-          tool: cargo-semver-checks@0.46.0
+          tool: cargo-semver-checks@0.50.0
 
       # For testing a new version of the holochain_release_util, you can uncomment the following lines:
       # The next step will have to be commented out to avoid replacing this version.

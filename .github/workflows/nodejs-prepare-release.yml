@@ -41,7 +41,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: holochain/actions/nodejs-setup@main
+      - uses: holochain/actions/nodejs-setup@v1.18.0
         with:
           node_version: ${{ inputs.node_version }}
           package_manager: ${{ inputs.package_manager }}

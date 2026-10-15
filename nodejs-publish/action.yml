@@ -95,7 +95,7 @@ runs:
         if [[ "$RELEASE_VERSION" == *"-"* ]]; then
           npm publish "${WORKSPACES_FLAGS[@]}" --access public --provenance --tag next
         else
-          npm publish "${WORKSPACES_FLAGS[@]}" --access public --provenance
+          npm publish "${WORKSPACES_FLAGS[@]}" --access public --provenance --tag latest
         fi
 
     # Package the release after the publish step so that the prepublishOnly script is run.
